@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Audience Rules Builder</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/rxjs/7.8.1/rxjs.umd.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ── Design Tokens ── */
+    :root {
+      --bg: #0d0f14;
+      --surface: #161921;
+      --surface-2: #1e2230;
+      --surface-3: #252a3a;
+      --border: rgba(255,255,255,0.07);
+      --border-accent: rgba(99,179,237,0.3);
+      --accent: #63b3ed;
+      --accent-glow: rgba(99,179,237,0.15);
+      --accent-2: #f6ad55;
+      --danger: #fc8181;
+      --danger-bg: rgba(252,129,129,0.12);
+      --text-primary: #e8eaf0;
+      --text-secondary: #7a8299;
+      --text-muted: #4a5270;
+      --green: #68d391;
+      --green-bg: rgba(104,211,145,0.12);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font-display: 'Sora', sans-serif;
+      --font-mono: 'DM Mono', monospace;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      min-height: 100vh;
+      padding: 40px 24px;
+      background-image:
+        radial-gradient(ellipse 60% 40% at 70% 10%, rgba(99,179,237,0.06) 0%, transparent 60%),
+        radial-gradient(ellipse 40% 30% at 10% 80%, rgba(246,173,85,0.04) 0%, transparent 50%);
+    }
+
+    /* ── Layout ── */
+    .app-shell {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .app-title {
+      font-size: 13px;
+      font-weight: 500;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+    }
+
+    .app-title span {
+      color: var(--accent);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .card-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+    }
+
+    /* ── Group ── */
+    .rule-group {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px;
+      margin-bottom: 10px;
+    }
+
+    .rule-group.nested {
+      background: var(--surface-3);
+      border-color: rgba(99,179,237,0.12);
+      margin: 0;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .logic-label {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.1em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-left: 4px;
+    }
+
+    /* ── Toggle Buttons ── */
+    .toggle-group {
+      display: flex;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      padding: 2px;
+      gap: 2px;
+    }
+
+    .toggle-btn {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      padding: 4px 10px;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.15s;
+      color: var(--text-muted);
+      background: transparent;
+    }
+
+    .toggle-btn.active {
+      background: var(--accent);
+      color: #0d0f14;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      color: var(--text-primary);
+      background: var(--surface-3);
+    }
+
+    /* ── Condition Row ── */
+    .condition-row {
+      display: grid;
+      grid-template-columns: 160px 160px 1fr 36px;
+      gap: 8px;
+      align-items: center;
+      margin-bottom: 8px;
+      animation: fadeSlideIn 0.2s ease forwards;
+    }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── Form Controls ── */
+    select, input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-primary);
+      font-family: var(--font-display);
+      font-size: 13px;
+      padding: 7px 10px;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+
+    select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237a8299' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      padding-right: 28px;
+    }
+
+    select:focus, input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    select option {
+      background: var(--surface-2);
+    }
+
+    /* ── Buttons ── */
+    .btn-primary {
+      background: var(--accent);
+      color: #0d0f14;
+      border: none;
+      border-radius: var(--radius-sm);
+      padding: 9px 20px;
+      font-family: var(--font-display);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s, box-shadow 0.15s;
+      letter-spacing: -0.01em;
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(99,179,237,0.3);
+    }
+
+    .btn-primary:active { transform: translateY(0); }
+
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      border: none;
+      color: var(--accent);
+      font-family: var(--font-display);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 5px 8px;
+      border-radius: var(--radius-sm);
+      transition: background 0.15s, color 0.15s;
+      letter-spacing: 0.01em;
+    }
+
+    .btn-ghost:hover {
+      background: var(--accent-glow);
+      color: var(--accent);
+    }
+
+    .btn-ghost.muted {
+      color: var(--text-muted);
+    }
+
+    .btn-ghost.muted:hover {
+      color: var(--text-secondary);
+      background: var(--surface-3);
+    }
+
+    .btn-remove {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      border: none;
+      background: var(--danger-bg);
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.15s, transform 0.1s;
+      flex-shrink: 0;
+      line-height: 1;
+    }
+
+    .btn-remove:hover {
+      background: rgba(252,129,129,0.22);
+      transform: scale(1.05);
+    }
+
+    /* ── Footer actions ── */
+    .group-actions {
+      display: flex;
+      gap: 4px;
+      margin-top: 10px;
+      flex-wrap: wrap;
+    }
+
+    /* ── Nested group wrapper ── */
+    .nested-group-wrapper {
+      background: rgba(99,179,237,0.04);
+      border: 1px solid rgba(99,179,237,0.1);
+      border-radius: var(--radius);
+      padding: 14px;
+      margin-bottom: 8px;
+      position: relative;
+    }
+
+    .nested-label {
+      position: absolute;
+      top: -9px;
+      left: 12px;
+      background: var(--surface-3);
+      border: 1px solid rgba(99,179,237,0.2);
+      border-radius: 4px;
+      padding: 1px 8px;
+      font-size: 9px;
+      font-family: var(--font-mono);
+      color: var(--accent);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    /* ── Matching Contacts ── */
+    .contacts-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 24px;
+    }
+
+    .contacts-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 18px;
+    }
+
+    .contacts-count {
+      background: var(--green-bg);
+      color: var(--green);
+      border: 1px solid rgba(104,211,145,0.2);
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      font-weight: 500;
+    }
+
+    .contacts-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .contact-chip {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 6px 14px 6px 6px;
+      transition: border-color 0.15s, background 0.15s;
+    }
+
+    .contact-chip:hover {
+      border-color: var(--border-accent);
+      background: var(--surface-3);
+    }
+
+    .avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      flex-shrink: 0;
+    }
+
+    .contact-name {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+
+    .empty-state {
+      color: var(--text-muted);
+      font-size: 13px;
+      font-style: italic;
+    }
+
+    /* ── Saved Rules ── */
+    .saved-rules {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .saved-rule-item {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 10px 14px;
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-secondary);
+      animation: fadeSlideIn 0.25s ease forwards;
+    }
+
+    .saved-rule-item strong {
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* ── Loading ── */
+    .loading-dot {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background: var(--accent);
+      border-radius: 50%;
+      animation: pulse 0.8s infinite ease-in-out;
+      margin-right: 6px;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 0.3; transform: scale(0.8); }
+      50%       { opacity: 1; transform: scale(1.1); }
+    }
+
+    /* Divider */
+    .divider {
+      height: 1px;
+      background: var(--border);
+      margin: 16px 0;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="app-shell" id="app">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-title">Chemist<span>2U</span> · Audience Builder</div>
+  </header>
+
+  <!-- Audience Rules Card -->
+  <div class="card">
+    <div class="card-header">
+      <span class="card-title">Audience Rules</span>
+      <button class="btn-primary" id="saveRuleBtn">Save Rule</button>
+    </div>
+
+    <!-- Root group -->
+    <div id="rootGroupContainer"></div>
+  </div>
+
+  <!-- Saved Rules -->
+  <div id="savedRulesSection" style="display:none;">
+    <div class="section-label">Saved Rules</div>
+    <div class="saved-rules" id="savedRulesList"></div>
+    <div class="divider"></div>
+  </div>
+
+  <!-- Matching Contacts Card -->
+  <div class="contacts-card">
+    <div class="contacts-header">
+      <span class="card-title">Matching Contacts</span>
+      <span class="contacts-count" id="contactsCount">0 contacts</span>
+    </div>
+    <div class="contacts-list" id="contactsList">
+      <span class="empty-state">No contacts match the current rules.</span>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  const { BehaviorSubject, combineLatest, of, timer } = rxjs;
+  const { map, debounceTime, switchMap, distinctUntilChanged } = rxjs.operators;
+
+  /* ── Data ── */
+  const CONTACTS = [
+    { id: 1, initials: 'AS', name: 'Anna Schmidt',    color: '#63b3ed', bg: 'rgba(99,179,237,0.18)',  country: 'Germany', plan: 'premium', purchaseCount: 5,  signupDate: '2023-03-15' },
+    { id: 2, initials: 'YT', name: 'Yuki Tanaka',     color: '#f6ad55', bg: 'rgba(246,173,85,0.18)', country: 'Japan',   plan: 'premium', purchaseCount: 8,  signupDate: '2023-01-20' },
+    { id: 3, initials: 'MC', name: 'Marie Curie',     color: '#68d391', bg: 'rgba(104,211,145,0.18)',country: 'France',  plan: 'basic',   purchaseCount: 2,  signupDate: '2024-06-01' },
+    { id: 4, initials: 'JL', name: 'James Lee',       color: '#b794f4', bg: 'rgba(183,148,244,0.18)',country: 'Germany', plan: 'basic',   purchaseCount: 12, signupDate: '2023-07-11' },
+    { id: 5, initials: 'SM', name: 'Sofia Martinez',  color: '#fc8181', bg: 'rgba(252,129,129,0.18)',country: 'Spain',   plan: 'premium', purchaseCount: 1,  signupDate: '2024-02-28' },
+    { id: 6, initials: 'HM', name: 'Hans Müller',     color: '#63b3ed', bg: 'rgba(99,179,237,0.18)', country: 'Germany', plan: 'premium', purchaseCount: 7,  signupDate: '2022-11-05' },
+  ];
+
+  const FIELD_OPTIONS = ['country', 'plan', 'purchaseCount', 'signupDate'];
+  const OPERATOR_MAP = {
+    country:       ['is', 'is not'],
+    plan:          ['is', 'is not'],
+    purchaseCount: ['is', 'greater than', 'less than'],
+    signupDate:    ['before', 'after', 'is'],
+  };
+
+  /* ── State ── */
+  let groupIdCounter = 0;
+  let conditionIdCounter = 0;
+
+  function newGroup(nested = false) {
+    return { id: ++groupIdCounter, logic: 'AND', conditions: [newCondition()], groups: [], nested };
+  }
+
+  function newCondition() {
+    return { id: ++conditionIdCounter, field: 'country', operator: 'is', value: '' };
+  }
+
+  // RxJS BehaviorSubjects (Angular-style Observable state)
+  const rootGroup$ = new BehaviorSubject(newGroup());
+  const savedRules$ = new BehaviorSubject([]);
+  const matchingContacts$ = new BehaviorSubject([]);
+  const saving$ = new BehaviorSubject(false);
+
+  /* ── Evaluation ── */
+  function evaluateGroup(group, contact) {
+    const condResults = group.conditions.map(c => evaluateCondition(c, contact));
+    const subResults = group.groups.map(g => evaluateGroup(g, contact));
+    const all = [...condResults, ...subResults];
+    if (!all.length) return true;
+    return group.logic === 'AND' ? all.every(Boolean) : all.some(Boolean);
+  }
+
+  function evaluateCondition(cond, contact) {
+    if (!cond.value) return true;
+    const val = contact[cond.field];
+    const target = cond.value.trim().toLowerCase();
+    const numVal = parseFloat(val);
+    const numTarget = parseFloat(cond.value);
+    switch (cond.operator) {
+      case 'is':            return String(val).toLowerCase() === target;
+      case 'is not':        return String(val).toLowerCase() !== target;
+      case 'greater than':  return !isNaN(numVal) && numVal > numTarget;
+      case 'less than':     return !isNaN(numVal) && numVal < numTarget;
+      case 'before':        return val < cond.value;
+      case 'after':         return val > cond.value;
+      default:              return true;
+    }
+  }
+
+  // Derived observable: contacts that match the root group
+  const subscription = rootGroup$.pipe(
+    debounceTime(150),
+    map(group => CONTACTS.filter(c => evaluateGroup(group, c)))
+  ).subscribe(contacts => {
+    matchingContacts$.next(contacts);
+    renderContacts(contacts);
+  });
+
+  /* ── Render Helpers ── */
+  function renderApp() {
+    renderGroup(rootGroup$.value, document.getElementById('rootGroupContainer'), false);
+    renderContacts(matchingContacts$.value);
+  }
+
+  function renderGroup(group, container, nested) {
+    container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'rule-group' + (nested ? ' nested' : '');
+
+    // Header with AND/OR toggle
+    const header = document.createElement('div');
+    header.className = 'group-header';
+
+    const toggleGroup = document.createElement('div');
+    toggleGroup.className = 'toggle-group';
+    ['AND', 'OR'].forEach(logic => {
+      const btn = document.createElement('button');
+      btn.className = 'toggle-btn' + (group.logic === logic ? ' active' : '');
+      btn.textContent = logic;
+      btn.onclick = () => {
+        group.logic = logic;
+        rootGroup$.next(rootGroup$.value);
+        renderApp();
+      };
+      toggleGroup.appendChild(btn);
+    });
+
+    const logicLabel = document.createElement('span');
+    logicLabel.className = 'logic-label';
+    logicLabel.textContent = group.logic === 'AND' ? 'ALL CONDITIONS MUST MATCH' : 'ANY CONDITION MUST MATCH';
+
+    header.appendChild(toggleGroup);
+    header.appendChild(logicLabel);
+    wrapper.appendChild(header);
+
+    // Conditions (trackBy id - simulated via data-id on rows)
+    const conditionsContainer = document.createElement('div');
+    conditionsContainer.setAttribute('data-conditions', group.id);
+    group.conditions.forEach(cond => renderConditionRow(cond, group, conditionsContainer));
+    wrapper.appendChild(conditionsContainer);
+
+    // Nested groups
+    group.groups.forEach(subGroup => {
+      const nestedWrapper = document.createElement('div');
+      nestedWrapper.className = 'nested-group-wrapper';
+      nestedWrapper.setAttribute('data-group-id', subGroup.id);
+
+      const nestedLabel = document.createElement('div');
+      nestedLabel.className = 'nested-label';
+      nestedLabel.textContent = 'GROUP';
+      nestedWrapper.appendChild(nestedLabel);
+
+      const nestedContainer = document.createElement('div');
+      renderGroup(subGroup, nestedContainer, true);
+      nestedWrapper.appendChild(nestedContainer);
+
+      // Remove group button
+      const removeGroup = document.createElement('button');
+      removeGroup.className = 'btn-ghost muted';
+      removeGroup.style.cssText = 'font-size:11px;margin-top:8px;display:block;';
+      removeGroup.textContent = '− Remove group';
+      removeGroup.onclick = () => {
+        group.groups = group.groups.filter(g => g.id !== subGroup.id);
+        rootGroup$.next(rootGroup$.value);
+        renderApp();
+      };
+      nestedWrapper.appendChild(removeGroup);
+
+      wrapper.appendChild(nestedWrapper);
+    });
+
+    // Actions
+    const actions = document.createElement('div');
+    actions.className = 'group-actions';
+
+    const addCond = document.createElement('button');
+    addCond.className = 'btn-ghost';
+    addCond.textContent = '+ Add condition';
+    addCond.onclick = () => {
+      group.conditions.push(newCondition());
+      rootGroup$.next(rootGroup$.value);
+      renderApp();
+    };
+
+    actions.appendChild(addCond);
+
+    // Only root group gets "+ Add group"
+    if (!nested) {
+      const addGroup = document.createElement('button');
+      addGroup.className = 'btn-ghost muted';
+      addGroup.textContent = '+ Add group';
+      addGroup.onclick = () => {
+        group.groups.push(newGroup(true));
+        rootGroup$.next(rootGroup$.value);
+        renderApp();
+      };
+      actions.appendChild(addGroup);
+    }
+
+    wrapper.appendChild(actions);
+    container.appendChild(wrapper);
+  }
+
+  function renderConditionRow(cond, group, container) {
+    const row = document.createElement('div');
+    row.className = 'condition-row';
+    row.setAttribute('data-cond-id', cond.id);
+
+    // Field select
+    const fieldSel = document.createElement('select');
+    FIELD_OPTIONS.forEach(f => {
+      const opt = document.createElement('option');
+      opt.value = f;
+      opt.textContent = f;
+      opt.selected = cond.field === f;
+      fieldSel.appendChild(opt);
+    });
+    fieldSel.onchange = () => {
+      cond.field = fieldSel.value;
+      cond.operator = OPERATOR_MAP[cond.field][0];
+      cond.value = '';
+      rootGroup$.next(rootGroup$.value);
+      renderApp();
+    };
+
+    // Operator select
+    const opSel = document.createElement('select');
+    (OPERATOR_MAP[cond.field] || ['is']).forEach(op => {
+      const opt = document.createElement('option');
+      opt.value = op;
+      opt.textContent = op;
+      opt.selected = cond.operator === op;
+      opSel.appendChild(opt);
+    });
+    opSel.onchange = () => {
+      cond.operator = opSel.value;
+      rootGroup$.next(rootGroup$.value);
+    };
+
+    // Value input
+    const valInput = document.createElement('input');
+    valInput.type = 'text';
+    valInput.placeholder = 'value…';
+    valInput.value = cond.value;
+    valInput.oninput = () => {
+      cond.value = valInput.value;
+      rootGroup$.next(rootGroup$.value);
+    };
+
+    // Remove button
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'btn-remove';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.title = 'Remove condition';
+    removeBtn.onclick = () => {
+      if (group.conditions.length === 1) return; // keep at least 1
+      group.conditions = group.conditions.filter(c => c.id !== cond.id);
+      rootGroup$.next(rootGroup$.value);
+      renderApp();
+    };
+
+    row.appendChild(fieldSel);
+    row.appendChild(opSel);
+    row.appendChild(valInput);
+    row.appendChild(removeBtn);
+    container.appendChild(row);
+  }
+
+  function renderContacts(contacts) {
+    const list = document.getElementById('contactsList');
+    const count = document.getElementById('contactsCount');
+    count.textContent = contacts.length + ' contact' + (contacts.length !== 1 ? 's' : '');
+
+    if (!contacts.length) {
+      list.innerHTML = '<span class="empty-state">No contacts match the current rules.</span>';
+      return;
+    }
+
+    list.innerHTML = '';
+    // trackBy: using data-contact-id to skip re-render of unchanged chips
+    contacts.forEach(contact => {
+      const existing = list.querySelector(`[data-contact-id="${contact.id}"]`);
+      if (existing) { list.appendChild(existing); return; }
+
+      const chip = document.createElement('div');
+      chip.className = 'contact-chip';
+      chip.setAttribute('data-contact-id', contact.id);
+
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = contact.initials;
+      avatar.style.background = contact.bg;
+      avatar.style.color = contact.color;
+
+      const name = document.createElement('span');
+      name.className = 'contact-name';
+      name.textContent = contact.name;
+
+      chip.appendChild(avatar);
+      chip.appendChild(name);
+      list.appendChild(chip);
+    });
+  }
+
+  /* ── Save Rule ── */
+  document.getElementById('saveRuleBtn').addEventListener('click', () => {
+    const btn = document.getElementById('saveRuleBtn');
+    saving$.next(true);
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-dot"></span> Saving…';
+
+    // Simulate async save (Observable-style)
+    timer(800).subscribe(() => {
+      saving$.next(false);
+      btn.disabled = false;
+      btn.textContent = 'Save Rule';
+
+      const group = rootGroup$.value;
+      const summary = summarizeGroup(group);
+      const rules = savedRules$.value;
+      rules.unshift({ id: Date.now(), summary, contacts: matchingContacts$.value.length });
+      savedRules$.next([...rules]);
+      renderSavedRules();
+    });
+  });
+
+  function summarizeGroup(group) {
+    const parts = group.conditions
+      .filter(c => c.value)
+      .map(c => `${c.field} ${c.operator} "${c.value}"`);
+    return parts.join(` ${group.logic} `) || 'Empty rule';
+  }
+
+  function renderSavedRules() {
+    const section = document.getElementById('savedRulesSection');
+    const list = document.getElementById('savedRulesList');
+    const rules = savedRules$.value;
+
+    if (!rules.length) { section.style.display = 'none'; return; }
+    section.style.display = 'block';
+    list.innerHTML = '';
+
+    // trackBy: data-rule-id
+    rules.forEach(rule => {
+      const item = document.createElement('div');
+      item.className = 'saved-rule-item';
+      item.setAttribute('data-rule-id', rule.id);
+      item.innerHTML = `<strong>Rule #${rule.id}</strong> — ${rule.summary} · <em style="color:var(--green)">${rule.contacts} match${rule.contacts !== 1 ? 'es' : ''}</em>`;
+      list.appendChild(item);
+    });
+  }
+
+  /* ── Bootstrap with default example state ── */
+  const defaultGroup = rootGroup$.value;
+  defaultGroup.conditions = [
+    { id: ++conditionIdCounter, field: 'country',       operator: 'is',           value: 'Germany' },
+    { id: ++conditionIdCounter, field: 'plan',          operator: 'is',           value: 'premium' },
+  ];
+
+  const subGroup = newGroup(true);
+  subGroup.logic = 'OR';
+  subGroup.conditions = [
+    { id: ++conditionIdCounter, field: 'purchaseCount', operator: 'greater than', value: '3' },
+    { id: ++conditionIdCounter, field: 'signupDate',    operator: 'before',       value: '2024-01-01' },
+  ];
+  defaultGroup.groups = [subGroup];
+  rootGroup$.next(defaultGroup);
+
+  renderApp();
+})();
+</script>
+</body>
+</html>
