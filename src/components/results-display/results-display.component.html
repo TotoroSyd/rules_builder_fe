@@ -1,0 +1,30 @@
+<!-- Matching Contacts Card -->
+<div class="contacts-card">
+  <div class="contacts-header">
+    <span class="card-title">Matching Contacts</span>
+    <span class="contacts-count">
+      {{ contacts.length }}
+      contact{{ contacts.length !== 1 ? 's' : '' }}
+    </span>
+  </div>
+
+  <div class="contacts-list">
+    <ng-container *ngIf="contacts.length > 0; else noContacts">
+      <div
+        *ngFor="let contact of contacts; trackBy: svc.trackByContactId"
+        class="contact-chip"
+      >
+        <!-- <div
+          class="avatar"
+          [style.background]="contact.bg"
+          [style.color]="contact.color"
+        >{{ contact.initials }}</div> -->
+        <span class="contact-name">{{ contact.name }}</span>
+      </div>
+    </ng-container>
+
+    <ng-template #noContacts>
+      <span class="empty-state">No contacts match the current rules.</span>
+    </ng-template>
+  </div>
+</div>
