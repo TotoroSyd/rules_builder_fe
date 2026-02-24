@@ -35,11 +35,12 @@ export class RuleBuilderService {
     debounceTime(150),
     distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
     switchMap(group => {
-      const conditions = group.conditions.filter(c => c.value.trim());
-      if (!conditions.length) {
+      const rule = this.summarizeGroup(group);
+      const hasAnyCondition = this.hasFilledCondition(rule);
+      if (!hasAnyCondition) {
         return of([]);
       }
-      return this.api.getContacts({ logic: group.logic, conditions }).pipe(
+      return this.api.getContacts(rule).pipe(
         catchError(err => {
           console.error('[matchingContacts$] API error:', err);
           return of([]);
@@ -168,6 +169,11 @@ export class RuleBuilderService {
     // would make JSON.stringify(prev) === JSON.stringify(next) inside
     // distinctUntilChanged, suppressing the emission entirely.
     this.rootGroup$$.next(structuredClone(this.rootGroup$$.value));
+  }
+
+  private hasFilledCondition(rule: Rule): boolean {
+    if (rule.conditions.some(c => c.value.toString().trim())) return true;
+    return (rule.groups ?? []).some(g => this.hasFilledCondition(g));
   }
 
   private summarizeGroup(group: RuleGroup): Rule {
