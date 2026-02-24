@@ -81,3 +81,4 @@ npm start          # → http://localhost:4200
 - unit test focuses on rule.buider service 
 - better UI indicates Loading
 - stricter on input or turn to select for better control
+- jwt token generation
