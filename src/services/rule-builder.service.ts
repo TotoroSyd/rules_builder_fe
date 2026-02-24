@@ -1,15 +1,23 @@
 // services/rule-builder.service.ts
 
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, combineLatest, timer, of } from 'rxjs';
-import { map, debounceTime, switchMap, distinctUntilChanged } from 'rxjs/operators';
+import { BehaviorSubject, Observable, of } from 'rxjs';
+import { debounceTime, distinctUntilChanged, switchMap, catchError, tap } from 'rxjs/operators';
 import {
   RuleGroup, Condition, Contact, SavedRule,
-  CONTACTS, OPERATOR_MAP, FieldType, ConditionOperator
+  OPERATOR_MAP, FieldType, ConditionOperator,
+  Rule
 } from '../models/audience-rule.model';
+import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class RuleBuilderService {
+  constructor(private api: ApiService) {
+    this.api.getRules().subscribe({
+      next: rules => this.savedRules$$.next(rules),
+      error: err => console.error('[RuleBuilderService] failed to load saved rules:', err)
+    });
+  }
   private groupCounter = 0;
   private conditionCounter = 0;
 
@@ -23,16 +31,21 @@ export class RuleBuilderService {
   readonly savedRules$: Observable<SavedRule[]> = this.savedRules$$.asObservable();
   readonly saving$: Observable<boolean> = this.saving$$.asObservable();
 
-  /**
-   * matchingContacts$ — derived Observable that reacts to rootGroup$ changes.
-   * Debounced so rapid keystrokes don't trigger excessive filtering.
-   * This replaces Angular's traditional *ngFor + ChangeDetection flow with
-   * a fully reactive pipeline consumed by `async` pipe in the template.
-   */
   readonly matchingContacts$: Observable<Contact[]> = this.rootGroup$$.pipe(
     debounceTime(150),
     distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-    map(group => CONTACTS.filter(contact => this.evaluateGroup(group, contact)))
+    switchMap(group => {
+      const conditions = group.conditions.filter(c => c.value.trim());
+      if (!conditions.length) {
+        return of([]);
+      }
+      return this.api.getContacts({ logic: group.logic, conditions }).pipe(
+        catchError(err => {
+          console.error('[matchingContacts$] API error:', err);
+          return of([]);
+        })
+      );
+    })
   );
 
   // ── Factory Methods ──────────────────────────────────────────────────────
@@ -41,7 +54,7 @@ export class RuleBuilderService {
     return {
       id: ++this.conditionCounter,
       field: 'country',
-      operator: 'is',
+      operator: OPERATOR_MAP['country'][0],
       value: ''
     };
   }
@@ -60,8 +73,8 @@ export class RuleBuilderService {
       id: ++this.groupCounter,
       logic: 'AND',
       conditions: [
-        { id: ++this.conditionCounter, field: 'country',       operator: 'is',           value: 'Germany' },
-        { id: ++this.conditionCounter, field: 'plan',          operator: 'is',           value: 'premium' },
+        { id: ++this.conditionCounter, field: 'country', operator: 'is', value: 'US' },
+        { id: ++this.conditionCounter, field: 'plan', operator: 'is', value: 'pro' },
       ],
       groups: []
     };
@@ -70,8 +83,7 @@ export class RuleBuilderService {
       id: ++this.groupCounter,
       logic: 'OR',
       conditions: [
-        { id: ++this.conditionCounter, field: 'purchaseCount', operator: 'greater than', value: '3' },
-        { id: ++this.conditionCounter, field: 'signupDate',    operator: 'before',       value: '2024-01-01' },
+        { id: ++this.conditionCounter, field: 'purchaseCount', operator: 'greater-than',   value: '10' },
       ],
       groups: []
     };
@@ -130,19 +142,20 @@ export class RuleBuilderService {
   saveRule(): Observable<SavedRule> {
     this.saving$$.next(true);
     const group = this.rootGroup$$.value;
-    const contactCount = CONTACTS.filter(c => this.evaluateGroup(group, c)).length;
-
-    return timer(800).pipe(
-      switchMap(() => {
-        const rule: SavedRule = {
-          id: Date.now(),
-          summary: this.summarizeGroup(group),
-          contactCount,
-          savedAt: new Date()
-        };
-        this.savedRules$$.next([rule, ...this.savedRules$$.value]);
-        this.saving$$.next(false);
-        return of(rule);
+    return this.api.saveRule({
+      name: `Rule #${this.savedRules$$.value.length + 1}`,
+      description: 'Saved from RuleBuilderService',
+      rule: this.summarizeGroup(group)
+    }).pipe(
+      tap({
+        next: (saved) => {
+          this.savedRules$$.next([saved, ...this.savedRules$$.value]);
+          this.saving$$.next(false);
+        },
+        error: (err) => {
+          console.error('Failed to save rule:', err);
+          this.saving$$.next(false);
+        }
       })
     );
   }
@@ -150,59 +163,44 @@ export class RuleBuilderService {
   // ── Private Helpers ──────────────────────────────────────────────────────
 
   private emit(): void {
-    // Emit new reference to trigger OnPush change detection
-    this.rootGroup$$.next({ ...this.rootGroup$$.value });
+    // Deep clone so the previous BehaviorSubject emission is a true snapshot.
+    // A shallow spread shares condition/group references — in-place mutations
+    // would make JSON.stringify(prev) === JSON.stringify(next) inside
+    // distinctUntilChanged, suppressing the emission entirely.
+    this.rootGroup$$.next(structuredClone(this.rootGroup$$.value));
   }
 
-  private evaluateGroup(group: RuleGroup, contact: Contact): boolean {
-    const condResults = group.conditions.map(c => this.evaluateCondition(c, contact));
-    const subResults  = group.groups.map(g => this.evaluateGroup(g, contact));
-    const all = [...condResults, ...subResults];
-    if (!all.length) return true;
-    return group.logic === 'AND' ? all.every(Boolean) : all.some(Boolean);
-  }
-
-  private evaluateCondition(cond: Condition, contact: Contact): boolean {
-    if (!cond.value.trim()) return true;
-    const raw    = contact[cond.field as keyof Contact];
-    const val    = String(raw).toLowerCase();
-    const target = cond.value.trim().toLowerCase();
-    const numV   = parseFloat(String(raw));
-    const numT   = parseFloat(cond.value);
-
-    switch (cond.operator) {
-      case 'is':           return val === target;
-      case 'is not':       return val !== target;
-      case 'greater than': return !isNaN(numV) && numV > numT;
-      case 'less than':    return !isNaN(numV) && numV < numT;
-      case 'before':       return String(raw) < cond.value;
-      case 'after':        return String(raw) > cond.value;
-      default:             return true;
+  private summarizeGroup(group: RuleGroup): Rule {
+    if (!group) {
+      console.warn('Attempted to summarize undefined group');
+      return { logic: 'AND', conditions: [] };
     }
-  }
-
-  private summarizeGroup(group: RuleGroup): string {
-    const parts = group.conditions
-      .filter(c => c.value.trim())
-      .map(c => `${c.field} ${c.operator} "${c.value}"`);
-    return parts.join(` ${group.logic} `) || 'Empty rule';
+    return {
+      logic: group.logic,
+      conditions: group.conditions.map(c => ({
+        field: c.field,
+        operator: c.operator,
+        value: c.value
+      })),
+      groups: group.groups.map(g => this.summarizeGroup(g))
+    };
   }
 
   // ── TrackBy Functions (used in templates) ────────────────────────────────
 
   trackByConditionId(_: number, cond: Condition): number {
-    return cond.id;
+    return cond.id ?? 0;
   }
 
   trackByGroupId(_: number, group: RuleGroup): number {
     return group.id;
   }
 
-  trackByContactId(_: number, contact: Contact): number {
+  trackByContactId(_: number, contact: Contact): string {
     return contact.id;
   }
 
-  trackBySavedRuleId(_: number, rule: SavedRule): number {
+  trackBySavedRuleId(_: number, rule: SavedRule): string {
     return rule.id;
   }
 }

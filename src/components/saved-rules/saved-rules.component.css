@@ -1,0 +1,34 @@
+.section-label {
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.saved-rules {
+  @apply flex flex-col gap-2 mb-4;
+}
+
+.saved-rule-item {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+  animation: fadeSlideIn 0.25s ease forwards;
+}
+
+.saved-rule-item strong {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 16px 0;
+}

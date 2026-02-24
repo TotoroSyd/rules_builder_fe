@@ -22,11 +22,11 @@ private readonly rootGroup$$ = new BehaviorSubject<RuleGroup>(this.createDefault
 readonly rootGroup$: Observable<RuleGroup> = this.rootGroup$$.asObservable();
 ```
 
-### 2. Derived Observable with `debounceTime` + `map`
+### 2. Derived Observable with `debounceTime` + `distinctUntilChanged`
 ```ts
 readonly matchingContacts$: Observable<Contact[]> = this.rootGroup$$.pipe(
   debounceTime(150),
-  map(group => CONTACTS.filter(c => this.evaluateGroup(group, c)))
+  distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
 );
 ```
 
@@ -59,22 +59,11 @@ this.vm$ = combineLatest([
 <div *ngFor="let rule of vm.savedRules; trackBy: svc.trackBySavedRuleId">
 ```
 
-### 5. Simulated async save with `timer` + `switchMap`
-```ts
-saveRule(): Observable<SavedRule> {
-  return timer(800).pipe(
-    switchMap(() => {
-      // persist rule...
-      return of(rule);
-    })
-  );
-}
-```
-
 ## Getting Started
 
 ```bash
 npm install
+npm run build
 npm start          # → http://localhost:4200
 ```
 
@@ -85,11 +74,10 @@ npm start          # → http://localhost:4200
 - ✅ Add / remove conditions and groups dynamically
 - ✅ Live contact matching (debounced, reactive)
 - ✅ Save rule with async feedback
-- ✅ Full Tailwind styling with dark theme
-- ✅ `trackBy` on all `*ngFor` lists
-- ✅ `async` pipe + `OnPush` throughout
-- ✅ Zero manual `subscribe()` in templates
 
-## Preview
-
-Open `index.html` directly in a browser for an instant preview of the UI (vanilla JS/RxJS UMD build, identical visual to the Angular app).
+## To improve
+- e2e test
+- accessibility
+- unit test focuses on rule.buider service 
+- better UI indicates Loading
+- stricter on input or turn to select for better control

@@ -1,0 +1,15 @@
+<ng-container *ngIf="rules.length > 0">
+  <div class="section-label">Saved Rules</div>
+  <div class="saved-rules">
+    <div
+      *ngFor="let rule of rules; trackBy: svc.trackBySavedRuleId"
+      class="saved-rule-item"
+    >
+      <strong>{{ rule.name }}</strong> {{ formatRule(rule.rule) }}
+      <!-- <em style="color:var(--green)">
+        {{ rule.contactCount }} match{{ rule.contactCount !== 1 ? 'es' : '' }}
+      </em> -->
+    </div>
+  </div>
+  <div class="divider"></div>
+</ng-container>
