@@ -2,7 +2,7 @@
 
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { debounceTime, distinctUntilChanged, switchMap, catchError, tap } from 'rxjs/operators';
+import { catchError, tap } from 'rxjs/operators';
 import {
   RuleGroup, Condition, Contact, SavedRule,
   OPERATOR_MAP, FieldType, ConditionOperator,
@@ -25,29 +25,33 @@ export class RuleBuilderService {
   private readonly rootGroup$$ = new BehaviorSubject<RuleGroup>(this.createDefaultGroup());
   private readonly savedRules$$ = new BehaviorSubject<SavedRule[]>([]);
   private readonly saving$$ = new BehaviorSubject<boolean>(false);
+  private readonly matchingContacts$$ = new BehaviorSubject<Contact[]>([]);
+  private readonly searching$$ = new BehaviorSubject<boolean>(false);
 
   // Public Observables — consumed via async pipe in templates
   readonly rootGroup$: Observable<RuleGroup> = this.rootGroup$$.asObservable();
   readonly savedRules$: Observable<SavedRule[]> = this.savedRules$$.asObservable();
   readonly saving$: Observable<boolean> = this.saving$$.asObservable();
+  readonly matchingContacts$: Observable<Contact[]> = this.matchingContacts$$.asObservable();
+  readonly searching$: Observable<boolean> = this.searching$$.asObservable();
 
-  readonly matchingContacts$: Observable<Contact[]> = this.rootGroup$$.pipe(
-    debounceTime(150),
-    distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-    switchMap(group => {
-      const rule = this.summarizeGroup(group);
-      const hasAnyCondition = this.hasFilledCondition(rule);
-      if (!hasAnyCondition) {
+  searchContacts(): void {
+    const rule = this.summarizeGroup(this.rootGroup$$.value);
+    if (!this.hasFilledCondition(rule)) {
+      this.matchingContacts$$.next([]);
+      return;
+    }
+    this.searching$$.next(true);
+    this.api.getContacts(rule).pipe(
+      catchError(err => {
+        console.error('[searchContacts] API error:', err);
         return of([]);
-      }
-      return this.api.getContacts(rule).pipe(
-        catchError(err => {
-          console.error('[matchingContacts$] API error:', err);
-          return of([]);
-        })
-      );
-    })
-  );
+      })
+    ).subscribe(contacts => {
+      this.matchingContacts$$.next(contacts);
+      this.searching$$.next(false);
+    });
+  }
 
   // ── Factory Methods ──────────────────────────────────────────────────────
 

@@ -16,6 +16,7 @@ interface AppViewModel {
   matchingContacts: Contact[];
   savedRules: SavedRule[];
   saving: boolean;
+  searching: boolean;
 }
 
 @Component({
@@ -51,14 +52,20 @@ export class AppComponent implements OnInit {
       this.ruleBuilderService.matchingContacts$,
       this.ruleBuilderService.savedRules$,
       this.ruleBuilderService.saving$,
+      this.ruleBuilderService.searching$,
     ]).pipe(
-      map(([rootGroup, matchingContacts, savedRules, saving]) => ({
+      map(([rootGroup, matchingContacts, savedRules, saving, searching]) => ({
         rootGroup,
         matchingContacts,
         savedRules,
-        saving
+        saving,
+        searching
       }))
     );
+  }
+
+  searchContacts(): void {
+    this.ruleBuilderService.searchContacts();
   }
 
   saveRule(): void {

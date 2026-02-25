@@ -7,6 +7,14 @@
             <span class="card-title">Audience Rules</span>
             <button
               class="btn-primary"
+              [disabled]="vm.searching"
+              (click)="searchContacts()"
+            >
+              <span *ngIf="vm.searching" class="loading-dot"></span>
+              {{ vm.searching ? 'Searching…' : 'Search' }}
+            </button>
+            <button
+              class="btn-primary"
               [disabled]="vm.saving"
               (click)="saveRule()"
             >
