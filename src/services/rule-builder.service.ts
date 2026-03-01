@@ -142,7 +142,7 @@ export class RuleBuilderService {
     this.emit();
   }
 
-  // ── Save Rule (simulated async via RxJS timer) ──
+  // ── Save Rule to API ────────────────────────────────────────────────────────────────
 
   saveRule(): Observable<SavedRule> {
     this.saving$$.next(true);

@@ -1,5 +1,7 @@
 <!-- Matching Contacts Card -->
 <div class="contacts-card">
+  <button (click)="toggleTrackBy()">trackBy: {{ useTrackBy ? 'ON' : 'OFF' }}</button>
+
   <div class="contacts-header">
     <span class="card-title">Matching Contacts</span>
     <span class="contacts-count">
@@ -10,17 +12,21 @@
 
   <div class="contacts-list">
     <ng-container *ngIf="contacts.length > 0; else noContacts">
-      <div
-        *ngFor="let contact of contacts; trackBy: svc.trackByContactId"
-        class="contact-chip"
-      >
-        <!-- <div
-          class="avatar"
-          [style.background]="contact.bg"
-          [style.color]="contact.color"
-        >{{ contact.initials }}</div> -->
-        <span class="contact-name">{{ contact.name }}</span>
+      <div *ngIf="useTrackBy">
+        <div
+          *ngFor="let contact of contacts; trackBy: svc.trackByContactId"
+          class="contact-chip"
+        >
+          <span class="contact-name">{{ contact.name }}</span>
+        </div>
       </div>
+
+      <div *ngIf="!useTrackBy">
+        <div *ngFor="let contact of contacts" class="contact-chip">
+          <span class="contact-name">{{ contact.name }}</span>
+        </div>
+      </div>
+
     </ng-container>
 
     <ng-template #noContacts>

@@ -14,4 +14,9 @@ import { RuleBuilderService } from '../../services/rule-builder.service';
 export class ResultsDisplayComponent {
   @Input() contacts: Contact[] = [];
   constructor(public readonly svc: RuleBuilderService) {}
+
+  useTrackBy = true;
+  toggleTrackBy(): void {
+    this.useTrackBy = !this.useTrackBy;}
+  
 }
