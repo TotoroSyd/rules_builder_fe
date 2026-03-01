@@ -9,6 +9,7 @@ import { RuleBuilderService } from './services/rule-builder.service';
 import { RuleGroupComponent } from './components/rule-group/rule-group.component';
 import { ResultsDisplayComponent } from './components/results-display/results-display.component';
 import { SavedRulesComponent } from './components/saved-rules/saved-rules.component';
+import { FooterComponent } from './components/footer/footer.component';
 import { Contact, SavedRule, RuleGroup } from './models/audience-rule.model';
 
 interface AppViewModel {
@@ -22,7 +23,7 @@ interface AppViewModel {
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, AsyncPipe, RuleGroupComponent, ResultsDisplayComponent, SavedRulesComponent],
+  imports: [CommonModule, AsyncPipe, RuleGroupComponent, ResultsDisplayComponent, SavedRulesComponent, FooterComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   /**
    * Template uses the async pipe throughout so Angular handles
