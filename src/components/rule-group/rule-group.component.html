@@ -42,13 +42,27 @@
       </select>
 
       <!-- Value -->
-      <input
-        type="text"
-        [ngModel]="cond.value"
-        (ngModelChange)="svc.updateConditionValue(cond, $event)"
-        placeholder="value…"
-      />
-
+      <!-- if field is 'country' or 'plan', show dropdown; otherwise, show text input -->
+      @if (cond.field === 'country' || cond.field === 'plan') {
+        <select
+          [ngModel]="cond.value"
+          (ngModelChange)="svc.updateConditionValue(cond, $event)">
+          @if (cond.field === 'country') {
+            <option *ngFor="let c of getCountriesOptions(cond.field)" [value]="c">{{ c }}</option>
+          }
+          @else {
+            <option *ngFor="let v of getPlanOptions(cond.field)" [value]="v">{{ v }}</option>
+          } 
+        </select>
+      }
+      @else {
+        <input
+          type="text"
+          [ngModel]="cond.value"
+          (ngModelChange)="svc.updateConditionValue(cond, $event)"
+          placeholder="Enter value"
+        />
+      } 
       <!-- Remove -->
       <button
         class="btn-remove"
@@ -67,7 +81,7 @@
     <span class="nested-label">GROUP</span>
 
     <!-- Recursive component -->
-    <app-rule-group [group]="subGroup" [nested]="true" [parentGroup]="group" />
+    <app-rule-group [group]="subGroup" [nested]="true" [parentGroup]="group" id="subgroup-{{subGroup.id - 1}}"/>
 
     <button
       class="btn-ghost muted remove-group-btn"
