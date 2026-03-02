@@ -34,7 +34,7 @@ interface GetRulesResponse {
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private readonly http: AxiosInstance = axios.create({
-    baseURL: environment.developBaseUrl,
+    baseURL: environment.baseUrl,
     timeout: 10_000,
     headers: {
       'Content-Type': 'application/json',

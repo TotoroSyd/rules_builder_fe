@@ -97,10 +97,7 @@ export class RuleBuilderService {
       ],
       groups: []
     };
-    console.log('subgroup before merging:', sub);
-
     root.groups = [sub];
-    console.log('root group after merging:', root);
     return root;
   }
 
