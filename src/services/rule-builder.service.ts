@@ -2,18 +2,20 @@
 
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable, of } from 'rxjs';
-import { catchError, tap } from 'rxjs/operators';
+import { catchError, take, tap } from 'rxjs/operators';
 import {
   RuleGroup, Condition, Contact, SavedRule,
   OPERATOR_MAP, FieldType, ConditionOperator,
-  Rule
+  Rule,
+  COUNTRIES
 } from '../models/audience-rule.model';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class RuleBuilderService {
   constructor(private api: ApiService) {
-    this.api.getRules().subscribe({
+    // when subscribe, good habit to clean up with take(1) or takeUntil and onDestroy to prevent memory leaks
+    this.api.getRules().pipe(take(1)).subscribe({
       next: rules => this.savedRules$$.next(rules),
       error: err => console.error('[RuleBuilderService] failed to load saved rules:', err)
     });
@@ -37,16 +39,19 @@ export class RuleBuilderService {
 
   searchContacts(): void {
     const rule = this.summarizeGroup(this.rootGroup$$.value);
+    // no condition, no API call
     if (!this.hasFilledCondition(rule)) {
       this.matchingContacts$$.next([]);
       return;
     }
+    // if there are conditions (at least 1), call API
     this.searching$$.next(true);
     this.api.getContacts(rule).pipe(
       catchError(err => {
         console.error('[searchContacts] API error:', err);
         return of([]);
-      })
+      }),
+      take(1) // good habit cleaning up the subscription
     ).subscribe(contacts => {
       this.matchingContacts$$.next(contacts);
       this.searching$$.next(false);
@@ -78,8 +83,8 @@ export class RuleBuilderService {
       id: ++this.groupCounter,
       logic: 'AND',
       conditions: [
-        { id: ++this.conditionCounter, field: 'country', operator: 'is', value: 'US' },
-        { id: ++this.conditionCounter, field: 'plan', operator: 'is', value: 'pro' },
+        { id: ++this.conditionCounter, field: 'country', operator: 'is', value: 'United States' },
+        { id: ++this.conditionCounter, field: 'plan', operator: 'is', value: 'free' },
       ],
       groups: []
     };
@@ -92,8 +97,10 @@ export class RuleBuilderService {
       ],
       groups: []
     };
+    console.log('subgroup before merging:', sub);
 
     root.groups = [sub];
+    console.log('root group after merging:', root);
     return root;
   }
 
@@ -142,7 +149,7 @@ export class RuleBuilderService {
     this.emit();
   }
 
-  // ── Save Rule (simulated async via RxJS timer) ──
+  // ── Save Rule ──
 
   saveRule(): Observable<SavedRule> {
     this.saving$$.next(true);
@@ -168,10 +175,7 @@ export class RuleBuilderService {
   // ── Private Helpers ──────────────────────────────────────────────────────
 
   private emit(): void {
-    // Deep clone so the previous BehaviorSubject emission is a true snapshot.
-    // A shallow spread shares condition/group references — in-place mutations
-    // would make JSON.stringify(prev) === JSON.stringify(next) inside
-    // distinctUntilChanged, suppressing the emission entirely.
+    // Ensure nested groups are properly merged into root before emitting
     this.rootGroup$$.next(structuredClone(this.rootGroup$$.value));
   }
 
@@ -179,21 +183,38 @@ export class RuleBuilderService {
     if (rule.conditions.some(c => c.value.toString().trim())) return true;
     return (rule.groups ?? []).some(g => this.hasFilledCondition(g));
   }
+  private convertCountryNameToCode(countryName: string): string {
+    const country = COUNTRIES.find(c => c.name === countryName);
+    return country ? country.code : countryName;
+  }
 
   private summarizeGroup(group: RuleGroup): Rule {
     if (!group) {
-      console.warn('Attempted to summarize undefined group');
+      console.error('Attempted to summarize undefined group');
       return { logic: 'AND', conditions: [] };
     }
-    return {
-      logic: group.logic,
-      conditions: group.conditions.map(c => ({
-        field: c.field,
-        operator: c.operator,
-        value: c.value
-      })),
-      groups: group.groups.map(g => this.summarizeGroup(g))
-    };
+    try {
+      if (group.conditions.some(c => c.field === 'country')) {
+        group.conditions.forEach(c => {
+          if (c.field === 'country') {
+            c.value = this.convertCountryNameToCode(c.value);
+          }
+        });
+      }
+
+      return {
+        logic: group.logic,
+        conditions: group.conditions.map(c => ({
+          field: c.field,
+          operator: c.operator,
+          value: c.value
+        })),
+        groups: group.groups.map(g => this.summarizeGroup(g))
+      };
+    } catch (err) {
+      console.error('Error summarizing group:', err);
+      return { logic: 'AND', conditions: [] };
+    }
   }
 
   // ── TrackBy Functions (used in templates) ────────────────────────────────

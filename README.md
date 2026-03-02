@@ -22,7 +22,7 @@ private readonly rootGroup$$ = new BehaviorSubject<RuleGroup>(this.createDefault
 readonly rootGroup$: Observable<RuleGroup> = this.rootGroup$$.asObservable();
 ```
 
-### 2. Derived Observable with `debounceTime` + `distinctUntilChanged`
+~~### 2. Derived Observable with `debounceTime` + `distinctUntilChanged`~~
 ```ts
 readonly matchingContacts$: Observable<Contact[]> = this.rootGroup$$.pipe(
   debounceTime(150),
@@ -47,9 +47,9 @@ this.vm$ = combineLatest([
 
 ```html
 <!-- In template — ONE async pipe, zero manual subscriptions -->
-<ng-container *ngIf="vm$ | async as vm">
-  {{ vm.matchingContacts.length }} contacts
-</ng-container>
+@if (vm$ | async; as vm) {
+  <span>{{ vm.matchingContacts.length }} contacts</span>
+}
 ```
 
 ### 4. `trackBy` on every `*ngFor`
@@ -82,3 +82,4 @@ npm start          # → http://localhost:4200
 - better UI indicates Loading
 - stricter on input or turn to select for better control
 - jwt token generation
+- convert rule-group to <form>

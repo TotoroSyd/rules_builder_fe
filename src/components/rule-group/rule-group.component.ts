@@ -7,7 +7,9 @@ import { FormsModule } from '@angular/forms';
 import { RuleBuilderService } from '../../services/rule-builder.service';
 import {
   RuleGroup, Condition, FieldType, ConditionOperator,
-  FIELD_OPTIONS, OPERATOR_MAP
+  FIELD_OPTIONS, OPERATOR_MAP,
+  COUNTRIES,
+  PLAN_OPTIONS
 } from '../../models/audience-rule.model';
 
 @Component({
@@ -31,4 +33,19 @@ export class RuleGroupComponent {
   getOperators(field: FieldType): ConditionOperator[] {
     return OPERATOR_MAP[field] ?? ['is'];
   }
+
+  getCountriesOptions(field: FieldType): string[] {
+    if (field === 'country') {
+      return COUNTRIES.map(c => c.name);
+    }
+    return [];
+  }
+
+  getPlanOptions(field: FieldType): string[] {
+    if (field === 'plan') {
+      return PLAN_OPTIONS;
+    }
+    return [];
+  }
+
 }
