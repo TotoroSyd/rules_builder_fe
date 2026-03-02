@@ -1,5 +1,4 @@
 export const environment = {
-  developBaseUrl: 'https://rulesbuilderbe.up.railway.app/',
-  localBaseUrl: 'http://localhost:3000',
+  baseUrl: 'https://rulesbuilderbe.up.railway.app/',
   authToken: 'dummy-secret-token-2024'
 };
