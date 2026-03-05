@@ -22,12 +22,16 @@ private readonly rootGroup$$ = new BehaviorSubject<RuleGroup>(this.createDefault
 readonly rootGroup$: Observable<RuleGroup> = this.rootGroup$$.asObservable();
 ```
 
-~~### 2. Derived Observable with `debounceTime` + `distinctUntilChanged`~~
+### 2. Derived Observable with `debounceTime` + `distinctUntilChanged`
 ```ts
-readonly matchingContacts$: Observable<Contact[]> = this.rootGroup$$.pipe(
-  debounceTime(150),
-  distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
-);
+  private defaultDeounceTime = 300; // milliseconds
+
+...
+this.rootGroup$$.pipe(
+      // skip(1),
+      debounceTime(this.defaultDeounceTime),
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+      switchMap(group => {......
 ```
 
 ### 3. ViewModel pattern with `combineLatest` + `async` pipe
