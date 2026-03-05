@@ -82,4 +82,4 @@ npm start          # → http://localhost:4200
 - better UI indicates Loading
 - stricter on input or turn to select for better control
 - jwt token generation
-- convert rule-group to <form>
+- convert rule-group to <form> and use new debounce() for Angular 19+
