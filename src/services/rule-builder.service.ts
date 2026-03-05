@@ -1,8 +1,8 @@
 // services/rule-builder.service.ts
 
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable, of } from 'rxjs';
-import { catchError, take, tap } from 'rxjs/operators';
+import { BehaviorSubject, EMPTY, Observable, of } from 'rxjs';
+import { catchError, debounceTime, distinctUntilChanged, skip, switchMap, take, tap } from 'rxjs/operators';
 import {
   RuleGroup, Condition, Contact, SavedRule,
   OPERATOR_MAP, FieldType, ConditionOperator,
@@ -19,9 +19,35 @@ export class RuleBuilderService {
       next: rules => this.savedRules$$.next(rules),
       error: err => console.error('[RuleBuilderService] failed to load saved rules:', err)
     });
+
+    this.rootGroup$$.pipe(
+      // skip(1),
+      debounceTime(this.defaultDeounceTime),
+      distinctUntilChanged((a, b) => JSON.stringify(a) === JSON.stringify(b)),
+      switchMap(group => {
+        const rule = this.summarizeGroup(group);
+        // no condition, no API call
+        if (!this.hasFilledCondition(rule)) {
+          this.matchingContacts$$.next([]);
+          return EMPTY;
+        }
+        // if there are conditions (at least 1), call API
+        this.searching$$.next(true);
+        console.log('[liveSearch] firing API call with rule:', rule); 
+        return this.api.getContacts(rule).pipe(
+          catchError(err => {
+            console.error('[liveSearch] API error:', err);
+            return of([]);
+          }),
+          tap(() => this.searching$$.next(false))
+        );
+      }) 
+    ).subscribe(contacts => this.matchingContacts$$.next(contacts));
   }
+
   private groupCounter = 0;
   private conditionCounter = 0;
+  private defaultDeounceTime = 300; // milliseconds
 
   // Core state as BehaviorSubjects (Angular's equivalent to component state)
   private readonly rootGroup$$ = new BehaviorSubject<RuleGroup>(this.createDefaultGroup());
@@ -37,8 +63,9 @@ export class RuleBuilderService {
   readonly matchingContacts$: Observable<Contact[]> = this.matchingContacts$$.asObservable();
   readonly searching$: Observable<boolean> = this.searching$$.asObservable();
 
-  searchContacts(): void {
-    const rule = this.summarizeGroup(this.rootGroup$$.value);
+  searchContacts(input: RuleGroup): void {
+    // const rule = this.summarizeGroup(this.rootGroup$$.value);
+    const rule = this.summarizeGroup(input);
     // no condition, no API call
     if (!this.hasFilledCondition(rule)) {
       this.matchingContacts$$.next([]);
@@ -93,7 +120,7 @@ export class RuleBuilderService {
       id: ++this.groupCounter,
       logic: 'OR',
       conditions: [
-        { id: ++this.conditionCounter, field: 'purchaseCount', operator: 'greater-than',   value: '10' },
+        { id: ++this.conditionCounter, field: 'purchaseCount', operator: 'greater-than',   value: '3' },
       ],
       groups: []
     };

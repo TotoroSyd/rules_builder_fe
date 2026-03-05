@@ -66,7 +66,8 @@ export class AppComponent implements OnInit {
   }
 
   searchContacts(): void {
-    this.ruleBuilderService.searchContacts();
+    // this.ruleBuilderService.searchContacts();
+    console.log('Search triggered');
   }
 
   saveRule(): void {
