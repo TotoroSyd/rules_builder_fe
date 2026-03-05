@@ -42,6 +42,8 @@ export class RuleBuilderService {
           tap(() => this.searching$$.next(false))
         );
       }) 
+      // dont use take 1 here eventhough its api call. because we want to keep listening
+      // no need to hanlde unsubscription here because this is a service that lives for the entire app lifecycle (inject in root)
     ).subscribe(contacts => this.matchingContacts$$.next(contacts));
   }
 
